@@ -37,20 +37,41 @@ let init = async () => {
   document.getElementById("user-1").srcObject = localStream;
 };
 
+let handleMessageFromPeer = async (message, memberId) => {
+  message = JSON.parse(message.text);
+
+  if (message.type == "offer") {
+    createAnswer(memberId, message.offer);
+  }
+
+  if (message.type == "answer") {
+    addAnswer(message.answer);
+  }
+
+  if (message.type == "candidate") {
+    if (peerConnection) {
+      await peerConnection.addIceCandidate(message.candidate);
+    }
+  }
+};
+
 let handleUserJoined = async (MemberId) => {
   console.log("A new user joined the stream:", MemberId);
   createOffer(MemberId);
 };
 
-let handleMessageFromPeer = async (message, memberId) => {
-  message = JSON.parse(message.text);
-  console.log(message);
-};
-
-let createOffer = async (MemberId) => {
+let createPeerConnection = async (MemberId) => {
   peerConnection = new RTCPeerConnection(servers);
   remoteStream = new MediaStream();
   document.getElementById("user-2").srcObject = remoteStream;
+
+  if (!localStream) {
+    localStream = await navigator.mediaDevices.getUserMedia({
+      video: true,
+      audio: false,
+    });
+    document.getElementById("user-1").srcObject = localStream;
+  }
 
   localStream.getTracks().forEach((track) => {
     peerConnection.addTrack(track, localStream);
@@ -65,13 +86,28 @@ let createOffer = async (MemberId) => {
   //What is generating these ice candidates and why
   peerConnection.onicecandidate = async (event) => {
     if (event.candidate) {
-      console.log("New Ice Candidate:", event.candidate);
+      console.log("candidate", event.candidate);
+
+      await client.sendMessageToPeer(
+        {
+          text: JSON.stringify({
+            type: "candidate",
+            candidate: event.candidate,
+          }),
+        },
+        MemberId
+      );
     }
   };
+};
+
+let createOffer = async (MemberId) => {
+  await createPeerConnection(MemberId);
 
   let offer = await peerConnection.createOffer();
   await peerConnection.setLocalDescription(offer); //look up localDescription later
 
+  console.log("offer", offer);
   client.sendMessageToPeer(
     {
       text: JSON.stringify({
@@ -81,6 +117,32 @@ let createOffer = async (MemberId) => {
     },
     MemberId
   );
+};
+
+let createAnswer = async (MemberId, offer) => {
+  await createPeerConnection();
+
+  await peerConnection.setRemoteDescription(offer);
+
+  let answer = await peerConnection.createAnswer();
+  await peerConnection.setLocalDescription(answer);
+
+  console.log("answer", answer);
+  client.sendMessageToPeer(
+    {
+      text: JSON.stringify({
+        type: "answer",
+        answer: answer,
+      }),
+    },
+    MemberId
+  );
+};
+
+let addAnswer = async (answer) => {
+  if (!peerConnection.currentRemoteDescription) {
+    peerConnection.setRemoteDescription(answer);
+  }
 };
 
 init();
