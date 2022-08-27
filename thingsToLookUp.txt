@@ -1,0 +1,25 @@
+Stun Servers
+Local Description
+What is generating these ice candidates and why?
+What is Signaling
+Why Agora
+What is the client and how does it relate to the peer connection
+What is the channel and how does it relate to the peer connection and the client
+
+Read Documentation
+createInstance
+login
+createChannel
+channel.join
+client.sendMessageToPeer
+
+Read Documentation on these Event Listeners channel.on()
+MemberJoined
+
+
+Read Documentation on these Event Listeners client.on()
+MessageFromPeer
+
+Are icecandidates created everytime a new member joins the channel?
+
+45:29
