@@ -21,6 +21,8 @@ let init = async () => {
     client = await AgoraRTM.createInstance(APP_ID)
     await client.login({uid, token})
 
+    client.on("MessageFromPeer", handleMessageFromPeer)
+
     channel = client.createChannel("someChannelID")
     channel.join()
     channel.on("MemberJoined", handleUserJoined)
@@ -30,8 +32,24 @@ let init = async () => {
     document.getElementById("user-1").srcObject = localStream
 }
 
-let handleUserJoined = async (memberID) => {
-    console.log(memberID)
+init()
+
+let createOffer = async (memberID) => {
+  peerConnection = new RTCPeerConnection()
+  let offer = await peerConnection.createOffer()
+  
+  await client.sendMessageToPeer({text: JSON.stringify({
+    type: "offer",
+    offer: offer
+  })}, memberID)
 }
 
-init()
+let handleUserJoined = async (memberID) => {
+    console.log(memberID)
+    createOffer(memberID)
+}
+
+let handleMessageFromPeer = async (message) => {
+  console.log(JSON.parse(message.text))
+}
+
