@@ -1,7 +1,14 @@
 const APP_ID = "baaf8f04d086423f867f219de52be6bb";
 let token = null;
 let uid = String(Math.floor(Math.random() * 100000));
-console.log(uid);
+
+let queryString = window.location.search
+let urlParams = new URLSearchParams(queryString)
+let roomID = urlParams.get("room")
+
+if(!roomID) {
+  window.location = `lobby.html`
+}
 
 let localStream;
 let remoteStream;
@@ -23,19 +30,23 @@ let init = async () => {
   await client.login({ uid, token });
 
   //index.html?room-234234
-  channel = client.createChannel("main");
+  channel = client.createChannel(roomID);
   await channel.join();
 
   channel.on("MemberJoined", handleUserJoined);
-
+  channel.on("MemberLeft", handleUserLeft)
   client.on("MessageFromPeer", handleMessageFromPeer);
 
   localStream = await navigator.mediaDevices.getUserMedia({
     video: true,
-    audio: false,
+    audio: true,
   });
   document.getElementById("user-1").srcObject = localStream;
 };
+
+let handleUserLeft = async (MemberId) => {
+  document.getElementById("user-2").style.display = "none"
+}
 
 let handleMessageFromPeer = async (message, memberId) => {
   message = JSON.parse(message.text);
@@ -65,10 +76,12 @@ let createPeerConnection = async (MemberId) => {
   remoteStream = new MediaStream();
   document.getElementById("user-2").srcObject = remoteStream;
 
+  document.getElementById("user-2").style.display = "block"
+
   if (!localStream) {
     localStream = await navigator.mediaDevices.getUserMedia({
       video: true,
-      audio: false,
+      audio: true,
     });
     document.getElementById("user-1").srcObject = localStream;
   }
@@ -120,7 +133,7 @@ let createOffer = async (MemberId) => {
 };
 
 let createAnswer = async (MemberId, offer) => {
-  await createPeerConnection();
+  await createPeerConnection(MemberId);
 
   await peerConnection.setRemoteDescription(offer);
 
@@ -144,5 +157,39 @@ let addAnswer = async (answer) => {
     peerConnection.setRemoteDescription(answer);
   }
 };
+
+let leaveChannel = async () => {
+  await channel.leave()
+  await client.logout()
+}
+
+let toggleCamera = async () => {
+  let videoTrack = localStream.getTracks().find(track => track.kind == "video")
+
+  if (videoTrack.enabled){
+    videoTrack.enabled = false
+    document.getElementById("camera-btn").style.backgroundColor = "rgb(255, 80, 80)"
+  } else {
+    videoTrack.enabled = true
+    document.getElementById("camera-btn").style.backgroundColor = "rgb(179, 102, 249, .9)"
+  }
+}
+
+let toggleMic = async () => {
+  let audioTrack = localStream.getTracks().find(track => track.kind == "audio")
+
+  if (audioTrack.enabled) {
+    audioTrack.enabled = false
+    document.getElementById("mic-btn").style.backgroundColor = "rgb(255, 80, 80)"
+  } else {
+    audioTrack.enabled = true
+    document.getElementById("mic-btn").style.backgroundColor = "rgb(179, 102, 249)"
+  }
+}
+
+document.getElementById("camera-btn").addEventListener("click", toggleCamera)
+document.getElementById("mic-btn").addEventListener("click", toggleMic)
+
+window.addEventListener("beforeunload", leaveChannel)
 
 init();
